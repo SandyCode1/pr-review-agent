@@ -50,3 +50,6 @@ vector-db/
 
 # Logs
 logs/
+
+*.tmp
+*.bak

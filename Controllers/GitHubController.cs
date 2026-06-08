@@ -46,4 +46,66 @@ public class GitHubController : ControllerBase
             State = pr.State.StringValue
         });
     }
+
+
+    [HttpGet("pr/{prNumber}/files")]
+    public async Task<IActionResult> GetPullRequestFiles(
+    int prNumber)
+    {
+        var owner =
+            _configuration["GitHub:Owner"];
+
+        var repo =
+            _configuration["GitHub:Repository"];
+
+        var token =
+            _configuration["GitHub:Token"];
+
+        var files =
+            await _gitHubService.GetPullRequestFilesAsync(
+                owner!,
+                repo!,
+                prNumber,
+                token!);
+
+        //return Ok(files.Select(f => new
+        //{
+        //    f.FileName,
+        //    f.Status,
+        //    f.Additions,
+        //    f.Deletions
+        //}));
+        return Ok(files.Select(f => new
+        {
+            f.FileName,
+            f.Status,
+            f.Additions,
+            f.Deletions,
+            f.BlobUrl,
+            f.RawUrl
+        }));
+    }
+
+    [HttpGet("pr/{prNumber}/diff")]
+    public async Task<IActionResult> GetPullRequestDiff(
+    int prNumber)
+    {
+        var owner = _configuration["GitHub:Owner"];
+        var repo = _configuration["GitHub:Repository"];
+        var token = _configuration["GitHub:Token"];
+
+        var diff =
+            await _gitHubService.GetPullRequestDiffAsync(
+                owner!,
+                repo!,
+                prNumber,
+                token!);
+
+        //return Ok(new
+        //{
+        //    Diff = diff
+        //});
+
+        return Content(diff, "text/plain");
+    }
 }
