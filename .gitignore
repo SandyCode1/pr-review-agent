@@ -28,3 +28,25 @@ publish/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Secrets
+appsettings.*.local.json
+secrets.json
+
+# User files
+*.userosscache
+*.sln.docstates
+
+# Coverage
+TestResults/
+coverage/
+
+# Azure
+.azure/
+
+# Semantic Kernel
+memory/
+vector-db/
+
+# Logs
+logs/
