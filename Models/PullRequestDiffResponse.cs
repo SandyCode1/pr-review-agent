@@ -1,6 +1,4 @@
-﻿using System.Net.Http.Headers;
-
-namespace PRReviewAgent.Models;
+﻿namespace PRReviewAgent.Models;
 
 public class PullRequestDiffResponse
 {

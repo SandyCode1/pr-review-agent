@@ -14,7 +14,12 @@
 
   <ItemGroup>
     <Folder Include="Configurations\" />
-    <Folder Include="Prompts\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Prompts\PRReviewPrompt.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
