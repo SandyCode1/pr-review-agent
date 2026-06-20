@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PRReviewAgent.Configurations;
+using PRReviewAgent.Models.Webhooks;
 using PRReviewAgent.Services;
+using System.Text.Json;
 
 namespace PRReviewAgent.Controllers;
 
@@ -10,13 +12,16 @@ public class GitHubController : ControllerBase
 {
     private readonly IConfiguration _configuration;
     private readonly GitHubService _gitHubService;
+    private readonly ReviewService _reviewService;
 
     public GitHubController(
         IConfiguration configuration,
-        GitHubService gitHubService)
+        GitHubService gitHubService,
+        ReviewService reviewService)
     {
         _configuration = configuration;
         _gitHubService = gitHubService;
+        _reviewService = reviewService;
     }
 
     [HttpGet("pr/{prNumber}")]
@@ -107,5 +112,70 @@ public class GitHubController : ControllerBase
         //});
 
         return Content(diff, "text/plain");
+    }
+
+
+    [HttpPost("webhook")]
+    public async Task<IActionResult> Webhook()
+    {
+        using var reader =
+            new StreamReader(Request.Body);
+
+        var payloadJson =
+            await reader.ReadToEndAsync();
+
+        var payload =
+            JsonSerializer.Deserialize<PullRequestWebhookPayload>(
+                payloadJson);
+
+        if (payload is null)
+        {
+            return BadRequest("Invalid payload");
+        }
+
+        if (payload.Action != "opened" && payload.Action != "synchronize")
+        {
+            Console.WriteLine(
+                $"Ignoring action: {payload.Action}");
+
+            return Ok();
+        }
+
+        Console.WriteLine("===== WEBHOOK RECEIVED =====");
+
+        Console.WriteLine($"Action: {payload.Action}");
+        Console.WriteLine($"PR Number: {payload.PullRequest.Number}");
+        Console.WriteLine($"Repository: {payload.Repository.Name}");
+
+        var owner =
+            _configuration["GitHub:Owner"];
+
+        var repo =
+            _configuration["GitHub:Repository"];
+
+        var token =
+            _configuration["GitHub:Token"];
+
+        var diff =
+            await _gitHubService.GetPullRequestDiffAsync(
+                owner!,
+                repo!,
+                payload.PullRequest.Number,
+                token!);
+
+        Console.WriteLine();
+        Console.WriteLine("===== DIFF RECEIVED =====");
+        Console.WriteLine($"Diff Length: {diff.Length}");
+
+        var review =
+    await _reviewService.GetAIReview(diff);
+
+        Console.WriteLine();
+        Console.WriteLine("===== AI REVIEW =====");
+
+        Console.WriteLine($"Summary: {review.Summary}");
+        Console.WriteLine($"Verdict: {review.Verdict}");
+
+        return Ok();
     }
 }

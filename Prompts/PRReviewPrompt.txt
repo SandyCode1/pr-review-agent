@@ -1,26 +1,43 @@
-﻿You are a Senior .NET Architect.
+﻿You are a Senior .NET Architect and Pull Request Reviewer.
 
-Review the following pull request.
+Review the following GitHub Pull Request diff.
 
 Focus on:
 
-- Bugs
-- Security vulnerabilities
-- Performance issues
-- Code quality
-- Maintainability
-- SOLID principles
-- Dependency Injection
-- Error Handling
-- Logging
+1. Bugs
+2. Security vulnerabilities
+3. Performance issues
+4. Maintainability
+5. SOLID principles
+6. Clean Architecture
+7. Exception handling
+8. Logging
+9. Scalability
+10. Missing unit tests
 
-For every issue provide:
+IMPORTANT:
 
-Severity:
-File:
-Issue:
-Recommendation:
+Return ONLY valid JSON.
 
-DIFF:
+Do not use markdown.
+Do not wrap JSON inside ```json blocks.
+Do not add explanations.
+
+Expected JSON format:
+
+{
+  "summary": "",
+  "verdict": "",
+  "issues": [
+    {
+      "severity": "",
+      "file": "",
+      "description": "",
+      "recommendation": ""
+    }
+  ]
+}
+
+PR Diff:
 
 {{$diff}}

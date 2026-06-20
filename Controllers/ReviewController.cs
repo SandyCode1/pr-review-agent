@@ -34,20 +34,29 @@ public class ReviewController : ControllerBase
         var token =
             _configuration["GitHub:Token"];
 
+        if (string.IsNullOrWhiteSpace(owner) ||
+            string.IsNullOrWhiteSpace(repo) ||
+            string.IsNullOrWhiteSpace(token))
+        {
+            return BadRequest(
+                "GitHub configuration missing.");
+        }
+
         var diff =
             await _gitHubService.GetPullRequestDiffAsync(
-                owner!,
-                repo!,
+                owner,
+                repo,
                 prNumber,
-                token!);
+                token);
 
-        var prompt =
-            _reviewService.BuildReviewPrompt(diff);
+        var review =
+            await _reviewService.GetAIReview(diff);
 
-        //return Ok(new
-        //{
-        //    Prompt = prompt
-        //});
-        return Content(prompt, "text/plain");
+        return Ok(new
+        {
+            PullRequestNumber = prNumber,
+            Repository = repo,
+            Review = review
+        });
     }
 }
