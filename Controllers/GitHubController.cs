@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using PRReviewAgent.Services;
 using PRReviewAgent.Models.Webhooks;
+using PRReviewAgent.Services;
 using System.Text.Json;
 
 namespace PRReviewAgent.Controllers;
@@ -24,67 +24,121 @@ public class GitHubController : ControllerBase
     }
 
     [HttpPost("webhook")]
-    public IActionResult Webhook()
+    public async Task<IActionResult> Webhook()
     {
-        // ✅ MUST return immediately to avoid GitHub timeout
-        _ = Task.Run(ProcessWebhookAsync);
+        string payloadJson;
+
+        using (var reader = new StreamReader(Request.Body))
+        {
+            payloadJson = await reader.ReadToEndAsync();
+        }
+
+        Console.WriteLine("=====================================");
+        Console.WriteLine("WEBHOOK REQUEST RECEIVED");
+        Console.WriteLine("=====================================");
+
+        // Return immediately to GitHub
+        _ = Task.Run(() => ProcessWebhookAsync(payloadJson));
 
         return Ok();
     }
 
-    private async Task ProcessWebhookAsync()
+    private async Task ProcessWebhookAsync(string payloadJson)
     {
         try
         {
-            using var reader = new StreamReader(Request.Body);
-            var payloadJson = await reader.ReadToEndAsync();
+            Console.WriteLine("STEP 1 - PARSING PAYLOAD");
 
-            Console.WriteLine("===== WEBHOOK RECEIVED =====");
-            Console.WriteLine(payloadJson);
-
-            var payload = JsonSerializer.Deserialize<PullRequestWebhookPayload>(payloadJson);
+            var payload =
+                JsonSerializer.Deserialize<PullRequestWebhookPayload>(
+                    payloadJson);
 
             if (payload is null)
             {
-                Console.WriteLine("Invalid payload");
+                Console.WriteLine("Payload deserialization failed.");
                 return;
             }
 
-            if (payload.Action != "opened" && payload.Action != "synchronize")
+            Console.WriteLine($"Action: {payload.Action}");
+            Console.WriteLine($"PR Number: {payload.PullRequest.Number}");
+            Console.WriteLine($"Repository: {payload.Repository.Name}");
+
+            if (payload.Action != "opened" &&
+                payload.Action != "synchronize")
             {
-                Console.WriteLine($"Ignoring action: {payload.Action}");
+                Console.WriteLine(
+                    $"Ignoring action: {payload.Action}");
+
                 return;
             }
 
-            Console.WriteLine($"ACTION: {payload.Action}");
-            Console.WriteLine($"PR NUMBER: {payload.PullRequest.Number}");
+            Console.WriteLine("STEP 2 - LOADING CONFIG");
 
-            var owner = _configuration["GitHub:Owner"];
-            var repo = _configuration["GitHub:Repository"];
-            var token = _configuration["GitHub:Token"];
+            var owner =
+                _configuration["GitHub:Owner"];
 
-            var diff = await _gitHubService.GetPullRequestDiffAsync(
-                owner!, repo!, payload.PullRequest.Number, token!);
+            var repo =
+                _configuration["GitHub:Repository"];
 
-            Console.WriteLine($"DIFF LENGTH: {diff.Length}");
+            var token =
+                _configuration["GitHub:Token"];
 
-            var review = await _reviewService.GetAIReview(diff);
+            if (string.IsNullOrWhiteSpace(owner) ||
+                string.IsNullOrWhiteSpace(repo) ||
+                string.IsNullOrWhiteSpace(token))
+            {
+                Console.WriteLine(
+                    "GitHub configuration missing.");
 
-            Console.WriteLine("===== AI REVIEW =====");
+                return;
+            }
+
+            Console.WriteLine("STEP 3 - FETCHING PR DIFF");
+
+            var diff =
+                await _gitHubService.GetPullRequestDiffAsync(
+                    owner,
+                    repo,
+                    payload.PullRequest.Number,
+                    token);
+
+            Console.WriteLine(
+                $"Diff Length: {diff.Length}");
+
+            if (string.IsNullOrWhiteSpace(diff))
+            {
+                Console.WriteLine("Diff is empty.");
+                return;
+            }
+
+            Console.WriteLine("STEP 4 - CALLING OPENAI");
+
+            var review =
+                await _reviewService.GetAIReview(diff);
+
+            Console.WriteLine("STEP 5 - AI REVIEW COMPLETED");
             Console.WriteLine($"Summary: {review.Summary}");
             Console.WriteLine($"Verdict: {review.Verdict}");
 
-            var issuesText = review.Issues != null && review.Issues.Count > 0
-                ? string.Join("\n\n", review.Issues.Select(i =>
+            var issuesText =
+                review.Issues != null &&
+                review.Issues.Any()
+                ? string.Join(
+                    "\n\n",
+                    review.Issues.Select(i =>
 $"""
 ### 🚨 {i.Severity}
-- File: {i.File}
-- Issue: {i.Description}
-- Fix: {i.Recommendation}
+
+**File:** {i.File}
+
+**Issue:** {i.Description}
+
+**Recommendation:** {i.Recommendation}
 """))
                 : "No issues found 🎉";
 
-            var comment = $"""
+            var comment =
+$"""
 ## 🤖 AI Pull Request Review
 
 ### 📌 Summary
@@ -96,20 +150,42 @@ $"""
 ---
 
 ## 🧠 Issues
+
 {issuesText}
 
 ---
+
 _This review was generated automatically by PRReviewAgent_
 """;
 
-            await _gitHubService.PostPullRequestCommentAsync(
-                owner!, repo!, payload.PullRequest.Number, token!, comment);
+            Console.WriteLine("STEP 6 - POSTING COMMENT TO GITHUB");
 
-            Console.WriteLine("===== COMMENT POSTED =====");
+            await _gitHubService.PostPullRequestCommentAsync(
+                owner,
+                repo,
+                payload.PullRequest.Number,
+                token,
+                comment);
+
+            Console.WriteLine(
+                "STEP 7 - COMMENT POSTED SUCCESSFULLY");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"🔥 ERROR IN WEBHOOK: {ex.Message}");
+            Console.WriteLine("=====================================");
+            Console.WriteLine("WEBHOOK PROCESSING FAILED");
+            Console.WriteLine("=====================================");
+            Console.WriteLine(ex.ToString());
         }
+    }
+
+    [HttpGet("health")]
+    public IActionResult Health()
+    {
+        return Ok(new
+        {
+            Status = "Healthy",
+            Time = DateTime.UtcNow
+        });
     }
 }
