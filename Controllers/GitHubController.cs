@@ -176,6 +176,55 @@ public class GitHubController : ControllerBase
         Console.WriteLine($"Summary: {review.Summary}");
         Console.WriteLine($"Verdict: {review.Verdict}");
 
+        var comment = $"""
+                        ## 🤖 AI Pull Request Review
+
+                        ### Summary
+                        {review.Summary}
+
+                        ### Verdict
+                        {review.Verdict}
+
+                        ---
+                        Generated automatically by PRReviewAgent
+                        """;
+
+        await _gitHubService.PostPullRequestCommentAsync(
+            owner!,
+            repo!,
+            payload.PullRequest.Number,
+            token!,
+            comment);
+
+        Console.WriteLine();
+        Console.WriteLine("===== COMMENT POSTED =====");
+
+
+
+        return Ok();
+    }
+
+
+    //for testing only
+    [HttpPost("pr/{prNumber}/comment")]
+    public async Task<IActionResult> AddComment(int prNumber)
+    {
+        var owner =
+            _configuration["GitHub:Owner"];
+
+        var repo =
+            _configuration["GitHub:Repository"];
+
+        var token =
+            _configuration["GitHub:Token"];
+
+        await _gitHubService.PostPullRequestCommentAsync(
+            owner!,
+            repo!,
+            prNumber,
+            token!,
+            "🤖 Test comment from AI Review Agent");
+
         return Ok();
     }
 }
