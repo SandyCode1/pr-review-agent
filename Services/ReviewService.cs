@@ -20,53 +20,54 @@ public class ReviewService
 
     public async Task<ReviewResult> GetAIReview(string diff)
     {
-        var deploymentName =
-            _configuration["AzureOpenAI:DeploymentName"];
+        var deploymentName = _configuration["AzureOpenAI:DeploymentName"];
 
-        var prompt =
-            BuildReviewPrompt(diff);
+        var prompt = BuildReviewPrompt(diff);
 
-        ChatClient chatClient =
-            _client.GetChatClient(deploymentName);
+        ChatClient chatClient = _client.GetChatClient(deploymentName);
 
-        var response =
-            await chatClient.CompleteChatAsync(
-            [
-                new SystemChatMessage(
-                    """
-                    You are a senior .NET architect and GitHub Pull Request reviewer.
+        var response = await chatClient.CompleteChatAsync(
+        [
+            new SystemChatMessage("""
+                You are a senior .NET architect and GitHub Pull Request reviewer.
 
-                    Always return valid JSON.
-                    Never return markdown.
-                    Never return code fences.
-                    """
-                ),
+                Return ONLY valid JSON.
+                No markdown.
+                No code fences.
+                Always include:
+                - summary
+                - verdict
+                - issues (array, even if empty)
+            """),
 
-                new UserChatMessage(prompt)
-            ]);
+            new UserChatMessage(prompt)
+        ]);
 
-        var json =
-            response.Value.Content[0].Text;
+        var json = response.Value.Content[0].Text?.Trim() ?? "";
 
-        json = json
-            .Replace("```json", "")
-            .Replace("```", "")
-            .Trim();
+        // ✅ SAFE JSON EXTRACTION (IMPORTANT FIX)
+        var start = json.IndexOf('{');
+        var end = json.LastIndexOf('}');
+
+        if (start >= 0 && end > start)
+        {
+            json = json[start..(end + 1)];
+        }
 
         try
         {
-            var result =
-                JsonSerializer.Deserialize<ReviewResult>(
-                    json,
-                    new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
+            var result = JsonSerializer.Deserialize<ReviewResult>(
+                json,
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
 
             return result ?? new ReviewResult
             {
                 Summary = "No review generated",
-                Verdict = "Manual Review Required"
+                Verdict = "Manual Review Required",
+                Issues = []
             };
         }
         catch (Exception ex)
@@ -74,24 +75,21 @@ public class ReviewService
             return new ReviewResult
             {
                 Summary = $"Unable to parse AI response. Error: {ex.Message}",
-                Verdict = "Manual Review Required"
+                Verdict = "Manual Review Required",
+                Issues = []
             };
         }
     }
 
     private string BuildReviewPrompt(string diff)
     {
-        var promptPath =
-            Path.Combine(
-                AppContext.BaseDirectory,
-                "Prompts",
-                "PRReviewPrompt.txt");
+        var promptPath = Path.Combine(
+            AppContext.BaseDirectory,
+            "Prompts",
+            "PRReviewPrompt.txt");
 
-        var template =
-            File.ReadAllText(promptPath);
+        var template = File.ReadAllText(promptPath);
 
-        return template.Replace(
-            "{{$diff}}",
-            diff);
+        return template.Replace("{{$diff}}", diff);
     }
 }
