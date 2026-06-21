@@ -82,6 +82,8 @@ _This review was generated automatically by PRReviewAgent_
             token!,
             comment);
 
+        Console.WriteLine("_gitHubService.PostPullRequestCommentAsync " + comment);
+
         return Ok();
     }
 }
