@@ -1,37 +1,46 @@
 ﻿# Build folders
-bin/
-obj/
+**/bin/
+**/obj/
 
 # Visual Studio
 .vs/
 *.user
 *.suo
+*.cache
 
-# Rider
+# Rider / ReSharper
 .idea/
+_ReSharper*/
+*.DotSettings.user
 
 # VS Code
 .vscode/
 
 # Logs
 *.log
+logs/
 
-# NuGet
+# NuGet (legacy only)
 packages/
 
 # Publish output
-publish/
+**/publish/
 
 # Environment files
 .env
+local.settings.json
+
+# Secrets
+secrets.json
+appsettings.*.local.json
+
+# Allow base configs only
+!appsettings.json
+!appsettings.Development.json
 
 # OS files
 Thumbs.db
 .DS_Store
-
-# Secrets
-appsettings.*.local.json
-secrets.json
 
 # User files
 *.userosscache
@@ -44,12 +53,14 @@ coverage/
 # Azure
 .azure/
 
-# Semantic Kernel
+# Semantic Kernel / AI tools
 memory/
 vector-db/
 
-# Logs
-logs/
-
+# Temporary files
 *.tmp
 *.bak
+
+# Azure deployment artifacts
+Properties/PublishProfiles/
+Properties/ServiceDependencies/
